@@ -15,8 +15,6 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from scipy.stats import wilcoxon
 
-# ดึงสถาปัตยกรรมตัวแบบและท่อข้อมูลจากโมดูลย่อยภายนอก
-# (สมมติว่าคุณได้อัปเดต cgm_pipeline และ finance_pipeline ให้ return เป็น List ของ Environments แล้ว)
 from models.inds_core import INDS
 from models.base_networks import BaselineNeuralODE, PatchTSTBaseline
 from cgm_pipeline import parse_ohio_xml_to_envs, parse_ohio_xml_to_tensor  # ใช้ v3 ที่ return เป็น X_envs, Y_envs
@@ -82,7 +80,6 @@ def load_comprehensive_datasets():
     cgm_test_path = "data/559-ws-testing.xml"
     finance_path = "data/XAUUSD_H1_202305282200_202605280000.csv"
 
-    # โหลดแบบเป็น Environments (List of Tensors) ตาม v3 pipeline
     X_cgm_envs, Y_cgm_envs = parse_ohio_xml_to_envs(cgm_train_path, seq_length=100, n_envs=12)
     # OOD เป็น Tensor ก้อนเดียว
     X_cgm_ood, Y_cgm_ood = parse_ohio_xml_to_tensor(cgm_test_path, seq_length=100)
@@ -91,7 +88,6 @@ def load_comprehensive_datasets():
         finance_path, window_size=100, n_envs=8
     )
 
-    # ฟังก์ชันช่วยย้าย List of Tensors ไปที่ DEVICE และทำ Scaling
     def scale_envs(envs_list, is_cgm=True, f_min=0, f_max=1):
         scaled = []
         for tensor in envs_list:
@@ -199,7 +195,6 @@ def run_fair_evaluation(model_type, seed, data_package):
     time_cgm = train_model_env_aware(model_cgm, X_cgm_envs, Y_cgm_envs, criterion, is_inds=is_inds, lambda_inv=lam_inv)
     time_fin = train_model_env_aware(model_fin, X_fin_envs, Y_fin_envs, criterion, is_inds=is_inds, lambda_inv=lam_inv)
 
-    # เพิ่มส่วนนี้: เซฟ Weight ของ Seed 42 อัตโนมัติเพื่อให้สคริปต์อื่นนำไปใช้ต่อได้
     if seed == 42:
         os.makedirs("weights", exist_ok=True)
         if model_type == "INDS":
@@ -218,13 +213,9 @@ def run_fair_evaluation(model_type, seed, data_package):
         rmse_id = torch.sqrt(criterion(pred_id, Y_cgm_id_all)).item()
         rmse_ood = torch.sqrt(criterion(pred_ood, Y_cgm_ood)).item()
 
-        # คำนวณ Constraint Violation Rate (CVR)
         pvr_calculated = 0.0
         kappa_P_value = None  # None = ไม่มี learned metric (baseline ที่ไม่มี auditor)
 
-        # NOTE (fix): ของเดิมเช็ค hasattr(model_cgm, 'get_P') ที่ตัว model ตรงๆ
-        # แต่ตาม extract_panel3_values.py ตัว P อยู่ที่ model.auditor.get_P()
-        # เช็คทั้งสองที่เพื่อไม่พลาดกรณี P ไม่ถูกดึงและ fallback เป็น identity เงียบๆ
         P_source = None
         if hasattr(model_cgm, 'get_P'):
             P_source = model_cgm.get_P
@@ -235,7 +226,6 @@ def run_fair_evaluation(model_type, seed, data_package):
             P_mat = P_source().detach()
             P_sym = 0.5 * (P_mat + P_mat.T)
 
-            # ใช้ .kappa() ที่มีอยู่แล้วใน DifferentiablePhysicsAuditor แทนการคำนวณ eigenvalue เอง
             if hasattr(model_cgm, 'auditor') and hasattr(model_cgm.auditor, 'kappa'):
                 kappa_P_value = model_cgm.auditor.kappa()
             else:
@@ -331,7 +321,7 @@ def start_verification_process():
     print("      key, which previously always raised KeyError and silently returned p=1.0.")
     print("=" * 80 + "\n")
     all_models = ["NODE", "PatchTST", "PINNs", "SpectralNormNODE", "INDS", "INDS_NoStability", "INDS_NoInvariance"]
-    # เพิ่มคีย์ cvr_pre, cvr_post และ sharpe_folds
+ 
     aggregated_results = {m: {"rmse_id": [], "rmse_ood": [], "cvr_pre": [], "cvr_post": [], "noise": [], "sharpe": [], "sharpe_folds": [], "kappa_P": []} for m in all_models}
 
     data_package = load_comprehensive_datasets()
@@ -360,8 +350,7 @@ def start_verification_process():
         print(f"⚠️ Wilcoxon (sharpe) failed: {e}")
         p_val_sharpe = 1.0
     try:
-        # FIX: เดิมใช้ key "cvr" ซึ่งไม่มีอยู่จริง -> KeyError ทุกครั้ง -> ตกไป except เงียบๆ
-        # -> p_val_cvr แสดงผล 1.0 เสมอ ไม่ว่าข้อมูลจริงจะต่างกันแค่ไหน
+
         p_val_cvr = wilcoxon(aggregated_results["INDS"]["cvr_pre"], aggregated_results["NODE"]["cvr_pre"]).pvalue
     except Exception as e:
         print(f"⚠️ Wilcoxon (cvr_pre) failed: {e}")
@@ -407,8 +396,6 @@ def start_verification_process():
         ns, ns_s = get_stats(m, "noise")
         name = name_map[m]
 
-        # FIX: κ(P) เดิมเป็น hardcoded string ("**1.271**"/"**1.418**") ไม่ได้คำนวณจากอะไรเลย
-        # ตอนนี้ดึงจากค่าจริงที่เก็บไว้ใน aggregated_results[m]["kappa_P"] (คำนวณจาก eigenvalue ของ P ที่ train จริงในแต่ละ seed)
         kappa_vals = aggregated_results[m]["kappa_P"]
         if len(kappa_vals) > 0:
             kappa_val = f"**{np.mean(kappa_vals):.3f} ± {np.std(kappa_vals):.3f}**" if m == "INDS" else f"{np.mean(kappa_vals):.3f} ± {np.std(kappa_vals):.3f}"
@@ -442,11 +429,9 @@ def start_verification_process():
     print("\n📊 Loading fully trained model weights to generate empirical figures...")
     X_cgm_envs, Y_cgm_envs, X_cgm_ood, Y_cgm_ood, _, _, _, _, _, _ = data_package
 
-    # สร้างโมเดลจำลองเพื่อวาดกราฟ
     model_inds = INDS(in_dim=100, latent_dim=10, use_stability=True, beta=100.0).to(DEVICE)
     model_node = BaselineNeuralODE(in_dim=100, latent_dim=10).to(DEVICE)
 
-    # โหลด Weight (ตรวจสอบให้แน่ใจว่าไฟล์ Weight มีอยู่จริงในโฟลเดอร์)
     try:
         inds_weight_path = "weights/INDS_learnedP_final.pt" if os.path.exists(
             "weights/INDS_learnedP_final.pt") else "weights/INDS_best_weights.pt"
@@ -525,7 +510,7 @@ def start_verification_process():
         print(
             f"⚠️ Could not generate plots. Ensure 'INDS_learnedP_final.pt' and 'NODE_best_weights.pt' exist. Error: {e}")
 
-    print("\n>>> 🚀 [SUCCESS REBUILT]: สคริปต์สอดคล้องกับเปเปอร์ 100% พร้อมบททดสอบทางสถิติที่โปร่งใส!")
+    print("\n>>> 🚀 [SUCCESS REBUILT]!")
 
 
 if __name__ == "__main__":
