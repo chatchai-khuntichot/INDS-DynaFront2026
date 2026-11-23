@@ -17,8 +17,8 @@ from scipy.stats import wilcoxon
 
 from models.inds_core import INDS
 from models.base_networks import BaselineNeuralODE, PatchTSTBaseline
-from cgm_pipeline import parse_ohio_xml_to_envs, parse_ohio_xml_to_tensor  # ใช้ v3 ที่ return เป็น X_envs, Y_envs
-from finance_pipeline import prepare_real_xau_ood_datasets  # ใช้ v3 ที่รองรับ environments
+from cgm_pipeline import parse_ohio_xml_to_envs, parse_ohio_xml_to_tensor 
+from finance_pipeline import prepare_real_xau_ood_datasets  
 
 SEEDS = [42, 43, 44, 45, 46]
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
