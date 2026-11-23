@@ -153,6 +153,8 @@ def main():
     print("\n" + "=" * 92)
     print("REPRODUCTION CHECK vs. previously printed benchmark values (tolerance 0.01 percentage points)")
     print("=" * 92)
+    # Unit test: Cross-check that this standalone audit script reproduces the exact
+    # aggregate metrics computed by INDS_Verified_Benchmark_fixed.py (not used in tables).
     reference = [
         ("NODE      identity single pre ", "NODE", ("identity", "single", "pre"), 98.0232),
         ("PINNs     identity single pre ", "PINNs", ("identity", "single", "pre"), 98.7920),
