@@ -1,13 +1,13 @@
 # ==============================================================================
 # MINIMAL FIX: DifferentiablePhysicsAuditor — Learnable P via Cholesky
-# 
-# แก้ไขเพียงสิ่งเดียว: เปลี่ยน P จาก fixed identity เป็น learnable PD matrix
-# โดยใช้ Cholesky parameterization: P = L @ L.T
 #
-# วิธีใช้:
-#   1. แทน class เดิมใน models/inds_core.py ด้วย class นี้
-#   2. รัน inds_retrain_warmup.py (ที่แก้แล้วด้านล่าง)
-#   3. ตรวจ kappa(P) และ PVR
+# Key modification: Replace fixed identity P with a learnable symmetric 
+# positive-definite (SPD) matrix via Cholesky parameterization: P = L @ L.T
+#
+# Usage:
+#   1. Replace the original auditor class in models/inds_core.py (or patch via load_patched_model)
+#   2. Run inds_learnedP_retrain.py
+#   3. Inspect kappa(P) and PVR
 # ==============================================================================
 
 import torch
@@ -75,7 +75,7 @@ class DifferentiablePhysicsAuditor(nn.Module):
 
 
 # ==============================================================================
-# WARM-UP RETRAIN SCRIPT (ใช้แทน inds_retrain_warmup.py)
+# WARM-UP RETRAIN SCRIPT
 # ==============================================================================
 
 import os, time, json, random
@@ -91,7 +91,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 SEEDS  = [42, 43, 44, 45, 46]
 
 CFG = dict(
-    # Phase 1: freeze P — ให้ encoder/vf adapt กับ P=I ก่อน
+    # Phase 1: freeze P — allow encoder/vf to adapt with P=I first
     phase1_epochs = 20,
     lr_main_p1    = 5e-3,
     lam_v_p1      = 1.0,
@@ -103,7 +103,7 @@ CFG = dict(
     lam_v_p2      = 0.5,
 
     grad_clip     = 5.0,
-    pvr_target    = 10.0,   # % PVR ที่ยอมรับได้
+    pvr_target    = 10.0,   
     seq_len       = 100,
     steps         = 10,
     alpha         = 0.5,
