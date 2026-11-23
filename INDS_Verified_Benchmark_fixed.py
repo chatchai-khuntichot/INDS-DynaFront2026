@@ -214,7 +214,7 @@ def run_fair_evaluation(model_type, seed, data_package):
         rmse_ood = torch.sqrt(criterion(pred_ood, Y_cgm_ood)).item()
 
         pvr_calculated = 0.0
-        kappa_P_value = None  # None = ไม่มี learned metric (baseline ที่ไม่มี auditor)
+        kappa_P_value = None 
 
         P_source = None
         if hasattr(model_cgm, 'get_P'):
@@ -290,7 +290,7 @@ def run_fair_evaluation(model_type, seed, data_package):
         position_signal = np.sign(pred_scaled - curr_scaled)
         position_signal[position_signal == 0] = 1.0
 
-        actual_returns = position_signal * price_return - 0.0001  # หัก Spread/Slippage
+        actual_returns = position_signal * price_return - 0.0001 
 
         sharpe_folds = []
         fold_size = len(actual_returns) // 5
@@ -335,7 +335,7 @@ def start_verification_process():
             aggregated_results[m]["cvr_post"].append(cvr_post)
             aggregated_results[m]["noise"].append(n_sens)
             aggregated_results[m]["sharpe"].append(sh)
-            aggregated_results[m]["sharpe_folds"] = sh_folds  # บันทึกแยกตามโมเดล
+            aggregated_results[m]["sharpe_folds"] = sh_folds 
             if kappa_P is not None:
                 aggregated_results[m]["kappa_P"].append(kappa_P)
 
@@ -400,7 +400,7 @@ def start_verification_process():
         if len(kappa_vals) > 0:
             kappa_val = f"**{np.mean(kappa_vals):.3f} ± {np.std(kappa_vals):.3f}**" if m == "INDS" else f"{np.mean(kappa_vals):.3f} ± {np.std(kappa_vals):.3f}"
         else:
-            kappa_val = "--"  # โมเดลนี้ไม่มี learned P (เช่น baseline ที่ไม่มี auditor)
+            kappa_val = "--" 
 
         print(
             f"| {name} | {cvr_pre:.4f}% ± {cvr_pre_s:.4f}% | {cvr_post:.4f}% ± {cvr_post_s:.4f}% | {ns:.4f} ± {ns_s:.4f} | {kappa_val} |")
@@ -412,7 +412,7 @@ def start_verification_process():
     for m in ["INDS", "INDS_NoStability", "INDS_NoInvariance"]:
         r, r_s = get_stats(m, "rmse_ood")
         sh, sh_s = get_stats(m, "sharpe")
-        cvr, cvr_s = get_stats(m, "cvr_pre")  # ดึงจาก cvr_pre แทน cvr เดิม
+        cvr, cvr_s = get_stats(m, "cvr_pre")  
         name = "**INDS (Full)**" if m == "INDS" else (
             "w/o Stability" if m == "INDS_NoStability" else "w/o Invariance")
         print(f"| {name} | {r:.4f} ± {r_s:.4f} | {sh:.4f} ± {sh_s:.4f} | {cvr:.4f}% ± {cvr_s:.4f}% |")
@@ -510,7 +510,7 @@ def start_verification_process():
         print(
             f"⚠️ Could not generate plots. Ensure 'INDS_learnedP_final.pt' and 'NODE_best_weights.pt' exist. Error: {e}")
 
-    print("\n>>> 🚀 [SUCCESS REBUILT]!")
+    print("\n>>> 🚀 [SUCCESS]: Benchmark pipeline and statistical tests completed!")
 
 
 if __name__ == "__main__":
