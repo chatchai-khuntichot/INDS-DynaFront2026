@@ -81,7 +81,7 @@ def load_comprehensive_datasets():
     finance_path = "data/XAUUSD_H1_202305282200_202605280000.csv"
 
     X_cgm_envs, Y_cgm_envs = parse_ohio_xml_to_envs(cgm_train_path, seq_length=100, n_envs=12)
-    # OOD เป็น Tensor ก้อนเดียว
+   
     X_cgm_ood, Y_cgm_ood = parse_ohio_xml_to_tensor(cgm_test_path, seq_length=100)
 
     X_fin_envs, Y_fin_envs, X_fin_ood, Y_fin_ood, fin_min, fin_max = prepare_real_xau_ood_datasets(
